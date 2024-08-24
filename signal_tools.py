@@ -1,3 +1,5 @@
+"""## A module for anaylizing and filtering signals.
+    """
 import logging
 import numpy as np
 import scipy.constants
