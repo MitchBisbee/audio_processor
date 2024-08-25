@@ -1,13 +1,16 @@
 """## A module for anaylizing and filtering signals.
     """
+import sys
 import logging
 import numpy as np
+from scipy import fft
 import scipy.constants
+import scipy.fftpack
 import scipy.io.wavfile
 import scipy.signal
 import matplotlib.pyplot as plt
 import sounddevice as sd
-
+import pygame
 
 logging.basicConfig(level=logging.ERROR,
                     format='%(asctime)s - %(levelname)s - %(message)s')
@@ -31,7 +34,7 @@ class AudioAnalyzer:
 
         ### Args:
             - `lowcut (int)`: low cutoff frequency
-            - `highcut (int)`: high cutoff frequency 
+            - `highcut (int)`: high cutoff frequency
             - `order (int)`: filter order
         """
         try:
@@ -98,8 +101,8 @@ class AudioAnalyzer:
     def apply_fourier_transform(self):
         """## Compute the one-dimensional discrete Fourier Transform.
 
-            This function computes the one-dimensional n-point discrete Fourier 
-            Transform (DFT) with the efficient Fast Fourier Transform (FFT) 
+            This function computes the one-dimensional n-point discrete Fourier
+            Transform (DFT) with the efficient Fast Fourier Transform (FFT)
             algorithm [CT].
 
         ### Returns:
@@ -306,7 +309,7 @@ class AudioAnalyzer:
               filtered of the file is played based off your filter design.
 
         ### Args:
-            - `filtered_signal (bool, optional)`: Plays the filtered signal 
+            - `filtered_signal (bool, optional)`: Plays the filtered signal
                from your filter designs. Defaults to False.
 
         ### Raises:
@@ -333,7 +336,7 @@ class AudioAnalyzer:
         """## Saves the filtered version of your file or the normal version.
 
         ### Args:
-            - `use_filtered (bool, optional)`: Saves the filtered version of 
+            - `use_filtered (bool, optional)`: Saves the filtered version of
                 the file. Defaults to True.
             - `output_filename (str, optional)`: _description_. Defaults to None.
 
@@ -352,14 +355,98 @@ class AudioAnalyzer:
             logging.error("Error saving audio file: %s", e)
             raise IOError(f'Failed to save file: {e}') from e
 
+# need to convert to frequency domain
+
+
+class Visualizer:
+    """## A class for visualizing audio files.
+    """
+    # need to attunuate the amplitudes in visualizer to not exceed the height
+    # of the screen
+    # need to add play/pause features and rewind / fastforward
+
+    def __init__(self, filename: str, screen_width=800, screen_height=600) -> None:
+        pygame.init()
+        pygame.display.set_caption("Visualizer")
+        self.screen = pygame.display.set_mode((screen_width, screen_height))
+        self.clock = pygame.time.Clock()
+        self.width = screen_width
+        self.height = screen_height
+        self.sr, self.y = scipy.io.wavfile.read(filename)
+        self.sound = pygame.mixer.Sound(filename)
+        self.y = self.y / np.max(np.abs(self.y), axis=0)
+        if len(self.y.shape) > 1:
+            self.y = self.y[:, 0]
+
+        self.chunk_size = 1024
+        self.num_chunks = len(self.y) // self.chunk_size
+        self.current_chunk = 0
+
+    def get_chunk(self) -> None | int:
+        """## Get chunk of audio.
+        """
+        if self.current_chunk < self.num_chunks:
+            start = self.current_chunk * self.num_chunks
+            end = start + self.chunk_size
+            chunk = self.y[start:end]
+            self.current_chunk += 1
+            return chunk
+        else:
+            return None
+
+    def draw_rectangle(self, fft_data: np.ndarray, bar_width: int) -> None:
+        """Draws rectangles on the pygame screen based on FFT data.
+
+        Args:
+            fft_data (np.ndarray): FFT data chunk to visualize.
+            bar_width (int): Width of each bar in the visualization.
+        """
+        for i, e in enumerate(fft_data):
+            # Calculate the height of each bar based on the FFT data
+            bar_height = int(e)
+
+            # Draw the rectangle on the screen
+            pygame.draw.rect(self.screen, (255, 255, 255),
+                             (i * bar_width, self.height - bar_height, bar_width, bar_height))
+
+    def run_visualizer(self) -> None:
+        """Runs a visualizer for the audio file."""
+
+        # Start the sound
+        self.sound.play()
+
+        running = True
+        while running:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    running = False
+
+            audio_chunk = self.get_chunk()
+            if audio_chunk is None:
+                break
+
+            # Get the FFT of the chunk of audio
+            fft_data = np.abs(scipy.fftpack.fft(audio_chunk))[
+                :len(audio_chunk) // 2]
+
+            # Normalize
+            max_value = np.max(fft_data)
+
+            if max_value > 0:
+                fft_data = fft_data / max_value * self.height
+
+            # Clearing the screen
+            self.screen.fill((0, 0, 0))
+
+            bar_width = self.width // len(fft_data)
+            self.draw_rectangle(fft_data, bar_width)
+            pygame.display.flip()
+            self.clock.tick(60)
+
+        pygame.quit()
+        sys.exit()
+
 
 if __name__ == "__main__":
-    test = AudioAnalyzer("speechlab3.wav")
-    test.play_audio()
-    test.display_dtft_magnitude()
-    test.display_norm_wave_content()
-    test.display_spectral_content()
-    test.display_filter_frequency_response('high', 2, 500)
-    test.display_filtered_audio("high", 2, 500)
-    test.apply_lowpass_filter(50,2)
-    test.play_audio(filtered_signal=True)
+    test = Visualizer("music.wav")
+    test.run_visualizer()
