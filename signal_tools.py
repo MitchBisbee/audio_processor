@@ -8,8 +8,7 @@ import scipy.signal
 import matplotlib.pyplot as plt
 import sounddevice as sd
 
-# need to adjust some things so that the dtft of music files can be plotted
-# then this should be ready to be used as a backend for the  audio app
+
 logging.basicConfig(level=logging.ERROR,
                     format='%(asctime)s - %(levelname)s - %(message)s')
 
@@ -96,7 +95,7 @@ class AudioAnalyzer:
             logging.error("Error applying bandstop filter: %s", e)
             raise
 
-    def apply_fourier_transform(self) -> np.NDArray[np.complex128]:
+    def apply_fourier_transform(self):
         """## Compute the one-dimensional discrete Fourier Transform.
 
             This function computes the one-dimensional n-point discrete Fourier 
@@ -314,8 +313,8 @@ class AudioAnalyzer:
             - `ValueError`: _description_
         """
         if filtered_signal:
-            if self.filtered_signal is not None and filtered_signal.size > 0:
-                sd.play(data=filtered_signal, samplerate=self.sr)
+            if self.filtered_signal is not None and self.filtered_signal.size > 0:
+                sd.play(data=self.filtered_signal, samplerate=self.sr)
             else:
                 raise ValueError(
                     "A filter must be applied before it can be played.")
@@ -361,4 +360,6 @@ if __name__ == "__main__":
     test.display_norm_wave_content()
     test.display_spectral_content()
     test.display_filter_frequency_response('high', 2, 500)
-    test.display_filtered_audio("high", 24, 500)
+    test.display_filtered_audio("high", 2, 500)
+    test.apply_lowpass_filter(50,2)
+    test.play_audio(filtered_signal=True)
