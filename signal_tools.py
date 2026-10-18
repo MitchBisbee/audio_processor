@@ -3,7 +3,6 @@
 import sys
 import logging
 import numpy as np
-from scipy import fft
 import scipy.constants
 import scipy.fftpack
 import scipy.io.wavfile
@@ -354,8 +353,6 @@ class AudioAnalyzer:
         except Exception as e:
             logging.error("Error saving audio file: %s", e)
             raise IOError(f'Failed to save file: {e}') from e
-
-# need to convert to frequency domain
 
 
 class Visualizer:
